@@ -1,56 +1,70 @@
 import 'package:flutter/material.dart';
 import '../constants/color.dart';
 import '../model/todo.dart';
+import '../utils/dialog_helper.dart';
 
-class TodoItem extends StatelessWidget {
+
+class TodoItem extends StatefulWidget {
   final Todo todo;
-  final Function OnToDoChanged;
-  final Function OnDeleteItem;
-  final Function OnSelectItem;
-  final Function OnUpdateItem;
+  final Function onToDoChanged;
+  final Function onDeleteItem;
+  final Function onUpdateItem;
+  final void Function(String) onSelectItem;
 
   const TodoItem({
     Key? key,
     required this.todo,
-    required this.OnToDoChanged,
-    required this.OnDeleteItem,
-    required this.OnSelectItem,
-    required this.OnUpdateItem,
+    required this.onToDoChanged,
+    required this.onDeleteItem,
+    required this.onUpdateItem,
+    required this.onSelectItem,
   }) : super(key: key);
+
+  @override
+  _TodoItemState createState() => _TodoItemState();
+}
+
+class _TodoItemState extends State<TodoItem> {
+  bool isEditing = false;
+  final TextEditingController _textController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _textController.text = widget.todo.todoText;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 20),
       child: ListTile(
-        onTap: () => OnToDoChanged(todo),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-        tileColor: Color(0xFFF5F5F5),  // Light gray background for a clean look
+        onTap: () => widget.onToDoChanged(widget.todo),
+        onLongPress: () => _showRenameDialog(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+        tileColor: tdBGColor,
         leading: Icon(
-          todo.isDone ? Icons.check_box : Icons.check_box_outline_blank,
-          color: todo.isDone ? tdGreen : tdGrey, // Green if completed, grey otherwise
+          widget.todo.isDone ? Icons.check_box : Icons.check_box_outline_blank,
+          color: widget.todo.isDone ? tdSuccessColor : tdGrey,
         ),
         title: Text(
-          todo.todoText,
+          widget.todo.todoText,
           style: TextStyle(
             fontSize: 18,
-            color: Color(0xFF212121),  // Darker text color for readability
-            fontWeight: FontWeight.bold,  // Bold title for better visibility
-            decoration: todo.isDone ? TextDecoration.lineThrough : null, // Strike-through if done
+            color: tdTextPrimary,
+            fontWeight: FontWeight.bold,
+            decoration: widget.todo.isDone ? TextDecoration.lineThrough : null,
           ),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Display the time added in a formatted way
             Text(
-              'Created on: ${_formatDate(todo.createdAt)}',
-              style: TextStyle(
+              'Created on: ${_formatDate(widget.todo.createdAt)}',
+              style: const TextStyle(
                 fontSize: 12,
-                color: Colors.grey,
+                color: tdTextSecondary,
               ),
             ),
           ],
@@ -59,49 +73,44 @@ class TodoItem extends StatelessWidget {
           height: 35,
           width: 35,
           decoration: BoxDecoration(
-            color: Color(0xFFE53935),  // Red background color for the delete button
+            color: tdErrorColor,
             borderRadius: BorderRadius.circular(5),
           ),
           child: IconButton(
             color: Colors.white,
             iconSize: 18,
-            icon: Icon(Icons.delete),
-            onPressed: () => _showDeleteDialog(context),  // Show delete confirmation dialog
+            icon: const Icon(Icons.delete),
+            onPressed: () => _showDeleteDialog(),
           ),
         ),
       ),
     );
   }
 
-  // Function to format the DateTime into a readable string
-  String _formatDate(DateTime dateTime) {
-    // Format the date to a string like "12:30 PM, Oct 10, 2024"
-    return "${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')} ${dateTime.hour < 12 ? 'AM' : 'PM'}, ${dateTime.month}/${dateTime.day}/${dateTime.year}";
+  void _showDeleteDialog() {
+    DialogHelper.showDeleteDialog(
+      context,
+      widget.todo, // Make sure this is a Todo
+          (id) => widget.onDeleteItem(id),
+    );
   }
 
-  // Function to show delete confirmation dialog
-  void _showDeleteDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Delete Todo'),
-          content: Text('Are you sure you want to delete this todo item?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                OnDeleteItem(todo.id);  // Delete the todo if confirmed
-                Navigator.pop(context);  // Close the dialog
-              },
-              child: Text('Yes', style: TextStyle(color: tdBlue)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),  // Close dialog without deleting
-              child: Text('No', style: TextStyle(color: tdBlue)),
-            ),
-          ],
-        );
+  void _showRenameDialog() {
+    DialogHelper.showRenameDialog(
+      context,
+      widget.todo,
+          (newText) {
+        if (newText.isNotEmpty) {
+          widget.onUpdateItem(widget.todo.id, newText);
+          setState(() {
+            widget.todo.todoText = newText;
+          });
+        }
       },
     );
+  }
+
+  String _formatDate(DateTime dateTime) {
+    return "${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')} ${dateTime.hour < 12 ? 'AM' : 'PM'}, ${dateTime.month}/${dateTime.day}/${dateTime.year}";
   }
 }

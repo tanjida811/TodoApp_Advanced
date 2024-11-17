@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Import shared_preferences
+import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/color.dart';
 import '../model/folder.dart';
+import '../utils/dialoghelper.dart';
 import '../widget/folder_item.dart';
 import 'home_screen.dart';
 
@@ -9,7 +10,7 @@ class FolderDetailScreen extends StatefulWidget {
   final String folderName;
   final String creationDate;
 
-  FolderDetailScreen({
+  const FolderDetailScreen({
     Key? key,
     required this.folderName,
     required this.creationDate,
@@ -22,39 +23,36 @@ class FolderDetailScreen extends StatefulWidget {
 class _FolderDetailScreenState extends State<FolderDetailScreen> {
   List<Folder> folderList = Folder.folderList();
   List<Folder> _foundFolders = [];
-  final _folderController = TextEditingController();
+  final TextEditingController _folderController = TextEditingController();
+  String _searchCriteria = 'Name';
 
   @override
   void initState() {
     super.initState();
-    _loadFolders(); // Load saved folders from SharedPreferences
+    _loadFolders(); // Load saved folders
   }
 
+  // Load folder data from SharedPreferences
   Future<void> _loadFolders() async {
     final prefs = await SharedPreferences.getInstance();
     List<String>? folderNames = prefs.getStringList('folderNames');
-    if (folderNames != null) {
-      setState(() {
-        _foundFolders = folderNames.map((name) {
-          return Folder(
-            id: DateTime.now().toString(),
-            folderName: name,
-            creationDate: DateTime.now(),
-            todos: [],
-          );
-        }).toList();
-      });
-    } else {
-      setState(() {
-        _foundFolders = folderList; // Default folder list if no saved folders
-      });
-    }
+    setState(() {
+      _foundFolders = folderNames != null
+          ? folderNames.map((name) => Folder(
+        id: DateTime.now().toString(),
+        folderName: name,
+        creationDate: DateTime.now(),
+        todos: [],
+      )).toList()
+          : folderList;
+    });
   }
 
+  // Save folder data to SharedPreferences
   Future<void> _saveFolders() async {
     final prefs = await SharedPreferences.getInstance();
-    List<String> folderNames = _foundFolders.map((folder) => folder.folderName).toList();
-    await prefs.setStringList('folderNames', folderNames);  // Save folder names
+    final folderNames = _foundFolders.map((folder) => folder.folderName ?? '').toList();
+    await prefs.setStringList('folderNames', folderNames);
   }
 
   @override
@@ -63,63 +61,104 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     super.dispose();
   }
 
+  // Filter folders based on search criteria
   void _runFilter(String enteredKeyword) {
-    List<Folder> results = enteredKeyword.isEmpty
-        ? folderList
-        : folderList.where((folder) => folder.folderName
-        .toLowerCase()
-        .contains(enteredKeyword.toLowerCase()))
-        .toList();
-
     setState(() {
-      _foundFolders = results;
+      _foundFolders = enteredKeyword.isEmpty
+          ? folderList
+          : folderList.where((item) {
+        if (_searchCriteria == 'Name') {
+          return item.folderName!
+              .toLowerCase()
+              .contains(enteredKeyword.toLowerCase());
+        } else {
+          final formattedDate =
+              "${item.creationDate.day}-${item.creationDate.month}-${item.creationDate.year}";
+          return formattedDate.contains(enteredKeyword);
+        }
+      }).toList();
     });
   }
 
-  void _showAddFolderDialog() {
-    final TextEditingController folderNameController = TextEditingController();
+  // Add a new folder
+  void _addNewFolder(String folderName) {
+    if (folderName.isNotEmpty) {
+      setState(() {
+        _foundFolders.insert(
+          0,
+          Folder(
+            id: DateTime.now().toString(),
+            folderName: folderName,
+            creationDate: DateTime.now(),
+            todos: [],
+          ),
+        );
+        _saveFolders();
+      });
+    }
+  }
 
-    showDialog(
+  // Dialog for adding or renaming a folder
+  Future<void> _showFolderDialog({
+    required String title,
+    required String buttonText,
+    required Function(String) onSubmit,
+    String initialText = '',
+  }) async {
+    final TextEditingController folderNameController =
+    TextEditingController(text: initialText);
+
+    await showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Add New Folder', style: TextStyle(color: tdPrimaryColor)),
-          content: TextField(
-            controller: folderNameController,
-            decoration: InputDecoration(
-              labelText: 'Folder Name',
-              labelStyle: TextStyle(color: tdPrimaryColor),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: tdPrimaryColor),
+      builder: (context) => AlertDialog(
+        backgroundColor: tdSurfaceColor,
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: tdPrimaryColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: TextField(
+          controller: folderNameController,
+          decoration: InputDecoration(
+            labelText: 'Folder Name',
+            labelStyle: const TextStyle(color: tdPrimaryColor),
+            focusedBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: tdPrimaryColor),
+            ),
+            enabledBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: tdBorderColor),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: tdErrorColor,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel', style: TextStyle(color: tdPrimaryColor)),
+          TextButton(
+            onPressed: () {
+              final folderName = folderNameController.text.trim();
+              onSubmit(folderName);
+              Navigator.of(context).pop();
+            },
+            child: Text(
+              buttonText,
+              style: const TextStyle(
+                color: tdPrimaryColor,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            TextButton(
-              onPressed: () {
-                final folderName = folderNameController.text;
-                if (folderName.isNotEmpty) {
-                  setState(() {
-                    _foundFolders.add(Folder(
-                      id: DateTime.now().toString(),
-                      folderName: folderName,
-                      creationDate: DateTime.now(),
-                      todos: [],
-                    ));
-                    _saveFolders();  // Save updated folders list
-                  });
-                  Navigator.of(context).pop();
-                }
-              },
-              child: Text('Add', style: TextStyle(color: tdPrimaryColor)),
-            ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 
@@ -127,38 +166,72 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: tdBGColor,
-      appBar: AppBar(
-        backgroundColor: tdBGColor,
-        elevation: 0,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Icon(Icons.menu, color: tdPrimaryColor, size: 30),
-            CircleAvatar(
-              radius: 20,
-              backgroundImage: AssetImage("assets/profile.jpeg"),
-            ),
-          ],
+      appBar: _buildAppBar(),
+      body: Column(
+        children: [
+          _buildSearchBar(),
+          _buildFolderList(),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showFolderDialog(
+          title: 'Add New Folder',
+          buttonText: 'Add',
+          onSubmit: _addNewFolder,
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.add, color: tdPrimaryColor),
-            onPressed: _showAddFolderDialog,
+        tooltip: 'Add Folder',
+        backgroundColor: tdSecondaryColor,
+        child: const Icon(Icons.create_new_folder, color: Colors.white),
+      ),
+    );
+  }
+
+  AppBar _buildAppBar() {
+    return AppBar(
+      elevation: 0,
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Icon(Icons.menu, color: tdBackgroundColor, size: 30),
+          const CircleAvatar(
+            radius: 20,
+            backgroundImage: AssetImage("assets/profile.jpeg"),
           ),
         ],
       ),
-      body: Column(
+    );
+  }
+
+  Padding _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
         children: [
-          Padding(
-            padding: EdgeInsets.all(16),
+          DropdownButton<String>(
+            value: _searchCriteria,
+            icon: const Icon(Icons.arrow_downward),
+            onChanged: (String? newValue) {
+              setState(() {
+                _searchCriteria = newValue!;
+              });
+            },
+            items: ['Name', 'Date']
+                .map((value) => DropdownMenuItem(
+              value: value,
+              child: Text(value),
+            ))
+                .toList(),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
             child: TextField(
               controller: _folderController,
               onChanged: _runFilter,
               decoration: InputDecoration(
-                prefixIcon: Icon(Icons.search, color: tdPrimaryColor),
-                hintText: 'Search for folders',
+                prefixIcon: const Icon(Icons.search, color: tdBackgroundColor),
+                hintText: 'Search folders by $_searchCriteria',
                 filled: true,
-                fillColor: tdWhite,
+                fillColor: tdSurfaceColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: BorderSide.none,
@@ -166,37 +239,47 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               ),
             ),
           ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _foundFolders.length,
-              itemBuilder: (context, index) {
-                final folder = _foundFolders[index];
-                return GestureDetector(
-                  onDoubleTap: () {
-                    _showAddFolderDialog(); // Show edit dialog
-                  },
-                  child: FolderItem(
-                    folder: folder,
-                    onFolderChanged: (folder) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => HomeScreen(),
-                        ),
-                      );
-                    },
-                    onDeleteFolder: (folderId) {
-                      setState(() {
-                        _foundFolders.removeWhere((folder) => folder.id == folderId);
-                        _saveFolders();  // Save updated folders list after delete
-                      });
-                    },
-                  ),
-                );
+        ],
+      ),
+    );
+  }
+
+  Expanded _buildFolderList() {
+    return Expanded(
+      child: _foundFolders.isEmpty
+          ? const Center(child: Text('No folders found.'))
+          : ListView.builder(
+        itemCount: _foundFolders.length,
+        itemBuilder: (context, index) {
+          final folder = _foundFolders[index];
+          return GestureDetector(
+            onDoubleTap: () => DialogHelper.showRenameDialog(
+              context,
+              folder,
+                  (newName) {
+                setState(() {
+                  folder.folderName = newName;
+                  _saveFolders();
+                });
               },
             ),
-          ),
-        ],
+            child: FolderItem(
+              folder: folder,
+              onFolderChanged: (folder) => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+              ),
+              onDeleteFolder: (folderId) {
+                setState(() {
+                  _foundFolders.removeWhere(
+                        (folder) => folder.id == folderId,
+                  );
+                  _saveFolders();
+                });
+              },
+            ),
+          );
+        },
       ),
     );
   }
