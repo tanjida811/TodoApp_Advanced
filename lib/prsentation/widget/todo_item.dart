@@ -40,13 +40,12 @@ class _TodoItemState extends State<TodoItem> {
       margin: const EdgeInsets.only(bottom: 20),
       child: ListTile(
         onTap: () => widget.onToDoChanged(widget.todo),
-        onLongPress: () => _showRenameDialog(),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
         tileColor: tdBGColor,
         leading: Icon(
           widget.todo.isDone ? Icons.check_box : Icons.check_box_outline_blank,
-          color: widget.todo.isDone ? tdSuccessColor : tdGrey,
+          color: widget.todo.isDone ? tdSuccessColor : tdTextSecondary,
         ),
         title: Text(
           widget.todo.todoText,
@@ -88,29 +87,16 @@ class _TodoItemState extends State<TodoItem> {
   }
 
   void _showDeleteDialog() {
-    DialogHelper.showDeleteDialog(
+    Dialog_Helper.showDeleteDialog(
       context,
       widget.todo, // Make sure this is a Todo
           (id) => widget.onDeleteItem(id),
     );
   }
 
-  void _showRenameDialog() {
-    DialogHelper.showRenameDialog(
-      context,
-      widget.todo,
-          (newText) {
-        if (newText.isNotEmpty) {
-          widget.onUpdateItem(widget.todo.id, newText);
-          setState(() {
-            widget.todo.todoText = newText;
-          });
-        }
-      },
-    );
-  }
+
 
   String _formatDate(DateTime dateTime) {
-    return "${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')} ${dateTime.hour < 12 ? 'AM' : 'PM'}, ${dateTime.month}/${dateTime.day}/${dateTime.year}";
+    return "${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')} ${dateTime.hour < 12 ? 'AM' : 'PM'}";
   }
 }

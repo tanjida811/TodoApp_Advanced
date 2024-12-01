@@ -1,10 +1,12 @@
-
+import '../screen/historymanager.dart';
+import 'historyitem.dart';
+import 'todo.dart';
 
 class Folder {
   String id;
   String? folderName;
   DateTime creationDate;
-  List<Todo> todos;  // Assuming Task is a model that holds task details
+  List<Todo> todos;
 
   Folder({
     required this.id,
@@ -13,25 +15,29 @@ class Folder {
     required this.todos,
   });
 
-  // Method to generate a list of folders, modify if needed
-  static List<Folder> folderList() {
-    return [
-      Folder(
-        id: '1',
-        folderName: 'Personal',
-        creationDate: DateTime.now(),
-        todos: [
-          Todo(title: 'Buy groceries'),
-          Todo(title: 'Do laundry'),
-        ],
-      ),
-      // Add other folders
-    ];
+  static List<Folder> folderList = [];
+
+  static void initializeFolders() {
+    folderList.add(Folder(
+      id: '1',
+      folderName: 'Shopping',
+      creationDate: DateTime.now(),
+      todos: [],
+    ));
+    folderList.add(Folder(
+      id: '2',
+      folderName: 'Entertainment',
+      creationDate: DateTime.now(),
+      todos: [],
+    ));
   }
-}
-
-class Todo {
-  String title;
-
-  Todo({required this.title});
+  static void deleteFolder(Folder folder) {
+    HistoryItem historyItem = HistoryItem(
+      id: folder.id,
+      actionType: 'deleted',
+      actionDate: DateTime.now(),
+      todo: null,  // No todo to restore, just folder info
+    );
+    HistoryManager.addHistoryItem(historyItem);
+  }
 }

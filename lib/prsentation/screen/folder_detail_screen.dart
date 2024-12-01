@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:to_do_app/prsentation/screen/history_screen.dart';
 import '../constants/color.dart';
 import '../model/folder.dart';
+import '../model/historyitem.dart';
 import '../utils/dialoghelper.dart';
 import '../widget/folder_item.dart';
+import 'historymanager.dart';
 import 'home_screen.dart';
 
 class FolderDetailScreen extends StatefulWidget {
@@ -21,7 +24,7 @@ class FolderDetailScreen extends StatefulWidget {
 }
 
 class _FolderDetailScreenState extends State<FolderDetailScreen> {
-  List<Folder> folderList = Folder.folderList();
+  List<Folder> folderList = Folder.folderList;
   List<Folder> _foundFolders = [];
   final TextEditingController _folderController = TextEditingController();
   String _searchCriteria = 'Name';
@@ -188,19 +191,36 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
 
   AppBar _buildAppBar() {
     return AppBar(
+      backgroundColor: tdBGColor,
       elevation: 0,
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Icon(Icons.menu, color: tdBackgroundColor, size: 30),
-          const CircleAvatar(
-            radius: 20,
-            backgroundImage: AssetImage("assets/profile.jpeg"),
+         Icon(Icons.menu,color: tdTextPrimary,),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.history, color: tdTextPrimary),
+                onPressed: () {
+                  // Navigate to the History Page from Home Screen
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => HistoryScreen(todoList: [])),
+                  );
+                },
+              ),
+              const CircleAvatar(
+                radius: 20,
+                backgroundImage: AssetImage("assets/profile.jpeg"),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+
+
 
   Padding _buildSearchBar() {
     return Padding(
@@ -228,7 +248,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               controller: _folderController,
               onChanged: _runFilter,
               decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search, color: tdBackgroundColor),
+                prefixIcon: const Icon(Icons.search, color: tdTextPrimary),
                 hintText: 'Search folders by $_searchCriteria',
                 filled: true,
                 fillColor: tdSurfaceColor,
@@ -269,18 +289,48 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                 context,
                 MaterialPageRoute(builder: (context) => const HomeScreen()),
               ),
-              onDeleteFolder: (folderId) {
-                setState(() {
-                  _foundFolders.removeWhere(
-                        (folder) => folder.id == folderId,
-                  );
-                  _saveFolders();
-                });
-              },
+              onDeleteFolder: _deleteFolder,
             ),
           );
         },
       ),
     );
   }
+
+
+  void _deleteFolder(String folderId) {
+    setState(() {
+      // ফোল্ডার খুঁজে বের করুন
+      Folder folder = _foundFolders.firstWhere(
+            (item) => item.id == folderId,
+        orElse: () => Folder(
+          id: '',
+          folderName: 'Unknown Folder',
+          creationDate: DateTime.now(),
+          todos: [],
+        ),
+      );
+
+      // যদি folder পাওয়া যায়, তাহলে ইতিহাসে যোগ করুন
+      if (folder.id != '') {
+        // Folder ডিলেট হলে History তে যোগ করুন
+        HistoryManager.addHistoryItem(
+          HistoryItem(
+            id: folder.id,
+            actionType: 'deleted', // ফোল্ডার মুছে ফেলার ধরন
+            actionDate: DateTime.now(),
+            todo: null, // ফোল্ডারের জন্য todo=null
+          ),
+        );
+
+        // Folder লিস্ট থেকে ফোল্ডার মুছে ফেলুন
+        _foundFolders.removeWhere((folder) => folder.id == folderId);
+      }
+    });
+
+    _saveFolders(); // Folder এর লিস্ট সেভ করা
+  }
+
+
+
 }

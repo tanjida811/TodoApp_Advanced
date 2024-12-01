@@ -1,7 +1,10 @@
+import '../screen/historymanager.dart';
+import 'historyitem.dart';
+
 class Todo {
-  final String id;
-  late final String todoText;
-  final DateTime createdAt;
+  String id;
+  String todoText;
+  DateTime createdAt;
   bool isDone;
   bool isSelected;
 
@@ -13,19 +16,35 @@ class Todo {
     this.isSelected = false,
   });
 
-  Todo copyWith({
-    String? id,
-    String? todoText,
-    DateTime? createdAt,
-    bool? isDone,
-    bool? isSelected,
-  }) {
+  Todo copyWith({String? todoText, bool? isDone, bool? isSelected}) {
     return Todo(
-      id: id ?? this.id,
+      id: id,
       todoText: todoText ?? this.todoText,
-      createdAt: createdAt ?? this.createdAt,
+      createdAt: createdAt,
       isDone: isDone ?? this.isDone,
       isSelected: isSelected ?? this.isSelected,
     );
+  }
+
+  // When a task is completed, add it to the history
+  static void markAsCompleted(Todo todo) {
+    HistoryItem historyItem = HistoryItem(
+      id: todo.id,
+      actionType: 'completed',
+      actionDate: DateTime.now(),
+      todo: todo,  // Store the completed task
+    );
+    HistoryManager.addHistoryItem(historyItem);
+  }
+
+  // Handle delete action and add to history
+  static void deleteTodoItem(Todo todo) {
+    HistoryItem historyItem = HistoryItem(
+      id: todo.id,
+      actionType: 'deleted',
+      actionDate: DateTime.now(),
+      todo: todo,  // Store the deleted task
+    );
+    HistoryManager.addHistoryItem(historyItem);
   }
 }

@@ -1,10 +1,14 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:to_do_app/prsentation/model/historyitem.dart';
 import '../constants/color.dart';
 import '../model/todo.dart';
+import '../utils/dialog_helper.dart';
 import '../widget/todo_item.dart';
+import 'history_screen.dart';
+import 'historymanager.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -14,12 +18,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  List<HistoryItem> history = [];
   List<Todo> todoList = [];
   List<Todo> _filteredToDo = [];
   final TextEditingController _todoController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String _searchCriteria = 'Text';
   Timer? _debounce;
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -32,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _todoController.dispose();
     _searchController.dispose();
     _debounce?.cancel();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -40,14 +48,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: tdBGColor,
       appBar: _buildAppBar(),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        child: Column(
-          children: [
-            _buildSearchBox(),
-            _buildTitle("All Todos"),
-            Expanded(child: _buildToDoList()),
-          ],
+      body: SingleChildScrollView(
+        controller: _scrollController, // Added the controller here
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          child: Column(
+            children: [
+              _buildSearchBox(),
+              const SizedBox(height: 15),
+              _buildToDoList(),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: _buildAddToDoSection(),
@@ -60,59 +71,83 @@ class _HomeScreenState extends State<HomeScreen> {
       elevation: 0,
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Icon(Icons.menu, color: tdTextPrimary, size: 30),
-          CircleAvatar(radius: 20, backgroundImage: AssetImage("assets/profile.jpeg")),
+        children: [
+          const Text(
+            'ToDo List',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: tdTextPrimary,
+              letterSpacing: 1.5,
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.history, color: tdTextPrimary),
+                onPressed: () {
+                  // Navigate to the History Page from Home Screen
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => HistoryScreen (todoList: todoList)),
+                  );
+                },
+              ),
+              const CircleAvatar(
+                radius: 20,
+                backgroundImage: AssetImage("assets/profile.jpeg"),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTitle(String title) {
-    return Container(
-      margin: const EdgeInsets.only(top: 50, bottom: 20),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w500, color: tdTextPrimary),
-      ),
-    );
-  }
 
   Widget _buildSearchBox() {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          DropdownButton<String>(
-            value: _searchCriteria,
-            icon: const Icon(Icons.arrow_downward),
-            onChanged: (String? newValue) {
-              setState(() {
-                _searchCriteria = newValue!;
-              });
-            },
-            items: ['Text', 'Date', 'Time'].map((value) {
-              return DropdownMenuItem(value: value, child: Text(value));
-            }).toList(),
-          ),
+          _buildSearchDropdown(),
           const SizedBox(width: 16),
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              onChanged: _runFilter,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search, color: tdBackgroundColor),
-                hintText: 'Search by $_searchCriteria',
-                filled: true,
-                fillColor: tdSurfaceColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
+          _buildSearchField(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchDropdown() {
+    return DropdownButton<String>(
+      value: _searchCriteria,
+      icon: const Icon(Icons.arrow_downward),
+      onChanged: (String? newValue) {
+        setState(() {
+          _searchCriteria = newValue!;
+        });
+      },
+      items: ['Text', 'Time'].map((value) {
+        return DropdownMenuItem(value: value, child: Text(value));
+      }).toList(),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Expanded(
+      child: TextField(
+        controller: _searchController,
+        onChanged: _runFilter,
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Icons.search, color: tdTextPrimary),
+          hintText: 'Search by $_searchCriteria',
+          filled: true,
+          fillColor: tdSurfaceColor,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide.none,
+          ),
+        ),
       ),
     );
   }
@@ -139,10 +174,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: TextField(
         controller: _todoController,
+        focusNode: _focusNode,
         decoration: const InputDecoration(
-          hintText: 'Enter your task...',
+          hintText: 'Enter your todo item...',
           border: InputBorder.none,
         ),
+        onTap: _scrollToEnd,
       ),
     );
   }
@@ -169,9 +206,10 @@ class _HomeScreenState extends State<HomeScreen> {
       createdAt: DateTime.now(),
     );
     setState(() {
-      todoList.add(todo);
+      todoList.insert(0, todo);
       _filteredToDo = List.from(todoList);
     });
+
     _saveTodoList();
     _todoController.clear();
   }
@@ -193,31 +231,42 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _runFilter(String query) {
-    setState(() {
-      _filteredToDo = todoList.where((todo) {
-        if (_searchCriteria == 'Text') {
-          return todo.todoText.toLowerCase().contains(query.toLowerCase());
-        }
-        if (_searchCriteria == 'Date' || _searchCriteria == 'Time') {
-          return todo.createdAt.toString().contains(query);
-        }
-        return false;
-      }).toList();
+    if (_debounce?.isActive ?? false) _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (query.isEmpty) {
+        setState(() {
+          _filteredToDo =
+              List.from(todoList); // Reset the filter if the search is empty
+        });
+        return;
+      }
+
+      setState(() {
+        _filteredToDo = todoList.where((todo) {
+          if (_searchCriteria == 'Text') {
+            return todo.todoText.toLowerCase().contains(query.toLowerCase());
+          } else {
+            final formattedTime = DateFormat('HH:mm').format(todo.createdAt);
+            return formattedTime.contains(query);
+          }
+        }).toList();
+      });
     });
   }
 
   Widget _buildToDoList() {
     return ListView.builder(
+      shrinkWrap: true, // Prevent scrolling issue
       itemCount: _filteredToDo.length,
       itemBuilder: (context, index) {
         return GestureDetector(
           onDoubleTap: () => _showRenameDialog(_filteredToDo[index].id),
           child: TodoItem(
             todo: _filteredToDo[index],
-            onToDoChanged: (todo) => _onTodoChanged(todo),
-            onDeleteItem: (id) => _deleteTodoItem(id),
-            onSelectItem: (id) => _onTodoSelected(id),
-            onUpdateItem: (id, text) => _updateTodoItem(id, text),
+            onToDoChanged: _onTodoChanged,
+            onDeleteItem: _deleteTodoItem,
+            onSelectItem: _onTodoSelected,
+            onUpdateItem: _updateTodoItem,
           ),
         );
       },
@@ -228,15 +277,108 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       todo.isDone = !todo.isDone;
     });
+    Todo.markAsCompleted(todo);
+    _saveTodoList();
+  }
+  void _deleteTodoItem(String todoId) {
+    setState(() {
+      int index = todoList.indexWhere((item) => item.id == todoId);
+      if (index == -1) {
+        print("Todo item not found");
+        return;
+      }
+
+      Todo todo = todoList[index];
+
+      // ইতিহাসে যোগ করুন
+      HistoryManager.addHistoryItem(
+        HistoryItem(
+          id: todo.id,
+          actionType: 'deleted', // ডিলিট হয়েছে
+          actionDate: DateTime.now(),
+          todo: todo, // ডিলিট হওয়া টাস্ক
+        ),
+      );
+
+      // টাস্ক লিস্ট থেকে মুছে ফেলুন
+      todoList.removeAt(index);
+      _filteredToDo = List.from(todoList);
+    });
+
+    _saveTodoList();
   }
 
-  void _deleteTodoItem(String id) {
+
+
+
+
+  void _showRenameDialog(String todoId) {
+    final todo = todoList.firstWhere((todo) => todo.id == todoId);
+    Dialog_Helper.showRenameDialog(
+      context,
+      todo,
+      (String newText) {
+        _updateTodoItem(todoId, newText);
+        _saveTodoList();
+      },
+    );
+  }
+
+  void _updateTodoItem(String id, String newText) {
     setState(() {
-      todoList.removeWhere((item) => item.id == id);
-      _filteredToDo = List.from(todoList);
+      final index = todoList.indexWhere((todo) => todo.id == id);
+      if (index != -1) {
+        todoList[index] = todoList[index].copyWith(todoText: newText);
+        _filteredToDo = List.from(todoList);
+      }
     });
     _saveTodoList();
   }
+
+  void _onTodoSelected(String id) {
+    setState(() {
+      final index = todoList.indexWhere((item) => item.id == id);
+      if (index != -1) {
+        todoList[index] =
+            todoList[index].copyWith(isSelected: !todoList[index].isSelected);
+      }
+    });
+  }
+
+  void _scrollToEnd() {
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+  void restoreFromHistory(String taskId) {
+    HistoryItem? historyItem = HistoryManager.getHistoryItem(taskId);
+
+    if (historyItem == null) {
+      // Handle the case where the history item is not found
+      print("History item not found for taskId: $taskId");
+      return;
+    }
+
+    if (historyItem.actionType == 'deleted' && historyItem.todo != null) {
+      // Restore the deleted Todo item
+      setState(() {
+        // Insert the restored Todo item back at the original position
+        todoList.insert(0, historyItem.todo!); // Add to the start, or use another logic to insert at the correct position
+      });
+
+      HistoryManager.history.remove(historyItem); // Remove from history after restoring
+      _saveTodoList(); // Save the updated list
+    }
+  }
+
+
+
 
   void _saveTodoList() async {
     final prefs = await SharedPreferences.getInstance();
@@ -244,60 +386,5 @@ class _HomeScreenState extends State<HomeScreen> {
       return '${todo.id}|${todo.todoText}|${todo.createdAt.toIso8601String()}';
     }).toList();
     prefs.setStringList('todos', todoStrings);
-  }
-
-  void _onTodoSelected(String id) {
-    setState(() {
-      final index = todoList.indexWhere((item) => item.id == id);
-      if (index != -1) {
-        todoList[index] = todoList[index].copyWith(isSelected: !todoList[index].isSelected);
-      }
-    });
-  }
-
-  void _showRenameDialog(String id) {
-    final _renameController = TextEditingController();
-    final todo = todoList.firstWhere((item) => item.id == id);
-
-    _renameController.text = todo.todoText;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Rename Todo'),
-          content: TextField(
-            controller: _renameController,
-            decoration: const InputDecoration(hintText: 'Enter new todo text'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (_renameController.text.isNotEmpty) {
-                  _updateTodoItem(id, _renameController.text);
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Rename'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _updateTodoItem(String id, String newText) {
-    setState(() {
-      final index = todoList.indexWhere((item) => item.id == id);
-      if (index != -1) {
-        todoList[index] = todoList[index].copyWith(todoText: newText);
-      }
-      _filteredToDo = List.from(todoList);
-    });
-    _saveTodoList();
   }
 }
