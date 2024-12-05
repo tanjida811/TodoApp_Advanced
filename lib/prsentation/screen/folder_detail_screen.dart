@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:to_do_app/prsentation/screen/history_screen.dart';
@@ -35,27 +37,23 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     _loadFolders(); // Load saved folders
   }
 
-  // Load folder data from SharedPreferences
+// Load folders from SharedPreferences
   Future<void> _loadFolders() async {
     final prefs = await SharedPreferences.getInstance();
-    List<String>? folderNames = prefs.getStringList('folderNames');
-    setState(() {
-      _foundFolders = folderNames != null
-          ? folderNames.map((name) => Folder(
-        id: DateTime.now().toString(),
-        folderName: name,
-        creationDate: DateTime.now(),
-        todos: [],
-      )).toList()
-          : folderList;
-    });
+    final folderData = prefs.getString('folders');
+    if (folderData != null) {
+      setState(() {
+        final List<dynamic> decodedData = jsonDecode(folderData);
+        folderList = decodedData.map((data) => Folder.fromJson(data)).toList();
+      });
+    }
   }
 
-  // Save folder data to SharedPreferences
+// Save folders to SharedPreferences
   Future<void> _saveFolders() async {
     final prefs = await SharedPreferences.getInstance();
-    final folderNames = _foundFolders.map((folder) => folder.folderName ?? '').toList();
-    await prefs.setStringList('folderNames', folderNames);
+    final folderData = folderList.map((folder) => folder.toJson()).toList();
+    prefs.setString('folders', jsonEncode(folderData)); // Save all folders
   }
 
   @override
@@ -300,8 +298,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
 
   void _deleteFolder(String folderId) {
     setState(() {
-      // ফোল্ডার খুঁজে বের করুন
-      Folder folder = _foundFolders.firstWhere(
+      final folder = Folder.folderList.firstWhere(
             (item) => item.id == folderId,
         orElse: () => Folder(
           id: '',
@@ -311,26 +308,22 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         ),
       );
 
-      // যদি folder পাওয়া যায়, তাহলে ইতিহাসে যোগ করুন
-      if (folder.id != '') {
-        // Folder ডিলেট হলে History তে যোগ করুন
+      if (folder.id.isNotEmpty) {
+        // Add to history
         HistoryManager.addHistoryItem(
           HistoryItem(
             id: folder.id,
-            actionType: 'deleted', // ফোল্ডার মুছে ফেলার ধরন
+            actionType: 'deleted',
             actionDate: DateTime.now(),
-            todo: null, // ফোল্ডারের জন্য todo=null
+            todo: null, // Folder doesn't have a specific todo
+            folder: folder, // Include folder data
           ),
         );
 
-        // Folder লিস্ট থেকে ফোল্ডার মুছে ফেলুন
-        _foundFolders.removeWhere((folder) => folder.id == folderId);
+        // Remove from folder list
+        Folder.folderList.remove(folder);
       }
     });
-
-    _saveFolders(); // Folder এর লিস্ট সেভ করা
   }
-
-
 
 }

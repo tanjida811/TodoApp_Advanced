@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:to_do_app/prsentation/model/historyitem.dart';
 import '../constants/color.dart';
+import '../model/folder.dart';
 import '../model/todo.dart';
 import '../utils/dialog_helper.dart';
 import '../widget/todo_item.dart';
@@ -27,11 +29,12 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchCriteria = 'Text';
   Timer? _debounce;
   final FocusNode _focusNode = FocusNode();
+  String folderId = 'default'; // Replace with dynamic folderId
 
   @override
   void initState() {
     super.initState();
-    _loadTodoList();
+    _loadTodoList(folderId); // Load todos based on folderId
   }
 
   @override
@@ -49,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: tdBGColor,
       appBar: _buildAppBar(),
       body: SingleChildScrollView(
-        controller: _scrollController, // Added the controller here
+        controller: _scrollController,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           child: Column(
@@ -89,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Navigate to the History Page from Home Screen
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => HistoryScreen (todoList: todoList)),
+                    MaterialPageRoute(builder: (context) => HistoryScreen(todoList: todoList)),
                   );
                 },
               ),
@@ -103,7 +106,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
 
   Widget _buildSearchBox() {
     return Padding(
@@ -210,24 +212,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _filteredToDo = List.from(todoList);
     });
 
-    _saveTodoList();
+    _saveTodoList(folderId); // Save todos based on folderId
     _todoController.clear();
-  }
-
-  void _loadTodoList() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedTodos = prefs.getStringList('todos') ?? [];
-    setState(() {
-      todoList = savedTodos.map((item) {
-        final parts = item.split('|');
-        return Todo(
-          id: parts[0],
-          todoText: parts[1],
-          createdAt: DateTime.parse(parts[2]),
-        );
-      }).toList();
-      _filteredToDo = List.from(todoList);
-    });
   }
 
   void _runFilter(String query) {
@@ -256,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildToDoList() {
     return ListView.builder(
-      shrinkWrap: true, // Prevent scrolling issue
+      shrinkWrap: true,
       itemCount: _filteredToDo.length,
       itemBuilder: (context, index) {
         return GestureDetector(
@@ -278,8 +264,9 @@ class _HomeScreenState extends State<HomeScreen> {
       todo.isDone = !todo.isDone;
     });
     Todo.markAsCompleted(todo);
-    _saveTodoList();
+    _saveTodoList(folderId); // Save todos based on folderId
   }
+
   void _deleteTodoItem(String todoId) {
     setState(() {
       int index = todoList.indexWhere((item) => item.id == todoId);
@@ -294,9 +281,9 @@ class _HomeScreenState extends State<HomeScreen> {
       HistoryManager.addHistoryItem(
         HistoryItem(
           id: todo.id,
-          actionType: 'deleted', // ডিলিট হয়েছে
+          actionType: 'deleted',
           actionDate: DateTime.now(),
-          todo: todo, // ডিলিট হওয়া টাস্ক
+          todo: todo,
         ),
       );
 
@@ -305,21 +292,17 @@ class _HomeScreenState extends State<HomeScreen> {
       _filteredToDo = List.from(todoList);
     });
 
-    _saveTodoList();
+    _saveTodoList(folderId); // Save todos based on folderId
   }
-
-
-
-
 
   void _showRenameDialog(String todoId) {
     final todo = todoList.firstWhere((todo) => todo.id == todoId);
     Dialog_Helper.showRenameDialog(
       context,
       todo,
-      (String newText) {
+          (String newText) {
         _updateTodoItem(todoId, newText);
-        _saveTodoList();
+        _saveTodoList(folderId); // Save todos based on folderId
       },
     );
   }
@@ -332,59 +315,41 @@ class _HomeScreenState extends State<HomeScreen> {
         _filteredToDo = List.from(todoList);
       }
     });
-    _saveTodoList();
   }
 
-  void _onTodoSelected(String id) {
-    setState(() {
-      final index = todoList.indexWhere((item) => item.id == id);
-      if (index != -1) {
-        todoList[index] =
-            todoList[index].copyWith(isSelected: !todoList[index].isSelected);
-      }
-    });
+  void _onTodoSelected(String todoId) {
+    final todo = todoList.firstWhere((todo) => todo.id == todoId);
+    print('Selected todo: ${todo.todoText}');
   }
+
 
   void _scrollToEnd() {
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-  void restoreFromHistory(String taskId) {
-    HistoryItem? historyItem = HistoryManager.getHistoryItem(taskId);
-
-    if (historyItem == null) {
-      // Handle the case where the history item is not found
-      print("History item not found for taskId: $taskId");
-      return;
-    }
-
-    if (historyItem.actionType == 'deleted' && historyItem.todo != null) {
-      // Restore the deleted Todo item
-      setState(() {
-        // Insert the restored Todo item back at the original position
-        todoList.insert(0, historyItem.todo!); // Add to the start, or use another logic to insert at the correct position
-      });
-
-      HistoryManager.history.remove(historyItem); // Remove from history after restoring
-      _saveTodoList(); // Save the updated list
-    }
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+    );
   }
 
-
-
-
-  void _saveTodoList() async {
+  // Load todos based on folder ID
+  Future<void> _loadTodoList(String folderId) async {
     final prefs = await SharedPreferences.getInstance();
-    final todoStrings = todoList.map((todo) {
-      return '${todo.id}|${todo.todoText}|${todo.createdAt.toIso8601String()}';
-    }).toList();
-    prefs.setStringList('todos', todoStrings);
+    final String? savedTodos = prefs.getString(folderId);
+
+    if (savedTodos != null) {
+      List<dynamic> jsonList = jsonDecode(savedTodos);
+      setState(() {
+        todoList = jsonList.map((item) => Todo.fromJson(item)).toList();
+        _filteredToDo = List.from(todoList);
+      });
+    }
+  }
+
+  // Save todos based on folder ID
+  Future<void> _saveTodoList(String folderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<Map<String, dynamic>> jsonList =
+    todoList.map((todo) => todo.toJson()).toList();
+    await prefs.setString(folderId, jsonEncode(jsonList));
   }
 }

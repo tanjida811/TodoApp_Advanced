@@ -16,6 +16,7 @@ class Todo {
     this.isSelected = false,
   });
 
+  // Copying an existing Todo with potential changes to properties
   Todo copyWith({String? todoText, bool? isDone, bool? isSelected}) {
     return Todo(
       id: id,
@@ -24,6 +25,28 @@ class Todo {
       isDone: isDone ?? this.isDone,
       isSelected: isSelected ?? this.isSelected,
     );
+  }
+
+  // Convert a Todo object from JSON
+  factory Todo.fromJson(Map<String, dynamic> json) {
+    return Todo(
+      id: json['id'],
+      todoText: json['todoText'],
+      createdAt: DateTime.parse(json['createdAt']),
+      isDone: json['isDone'] ?? false,
+      isSelected: json['isSelected'] ?? false,
+    );
+  }
+
+  // Convert a Todo object to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'todoText': todoText,
+      'createdAt': createdAt.toIso8601String(),
+      'isDone': isDone,
+      'isSelected': isSelected,
+    };
   }
 
   // When a task is completed, add it to the history

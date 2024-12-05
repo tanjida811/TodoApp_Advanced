@@ -6,6 +6,8 @@ import '../model/todo.dart';
 class HistoryManager {
   static List<HistoryItem> history = [];
 
+
+
   // Save history items to SharedPreferences
   static void saveHistory() async {
     final prefs = await SharedPreferences.getInstance();

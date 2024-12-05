@@ -1,12 +1,10 @@
-import '../screen/historymanager.dart';
-import 'historyitem.dart';
-import 'todo.dart';
+import 'package:to_do_app/prsentation/model/todo.dart'; // Assuming Todo model exists
 
 class Folder {
   String id;
   String? folderName;
   DateTime creationDate;
-  List<Todo> todos;
+  List<Todo> todos;  // Tasks (Todos) associated with the folder
 
   Folder({
     required this.id,
@@ -15,29 +13,43 @@ class Folder {
     required this.todos,
   });
 
+  // Static list to hold folders
   static List<Folder> folderList = [];
 
+  // Initialize folders with empty tasks
   static void initializeFolders() {
     folderList.add(Folder(
       id: '1',
       folderName: 'Shopping',
       creationDate: DateTime.now(),
-      todos: [],
+      todos: [],  // Empty list of tasks
     ));
     folderList.add(Folder(
       id: '2',
       folderName: 'Entertainment',
       creationDate: DateTime.now(),
-      todos: [],
+      todos: [],  // Empty list of tasks
     ));
   }
-  static void deleteFolder(Folder folder) {
-    HistoryItem historyItem = HistoryItem(
-      id: folder.id,
-      actionType: 'deleted',
-      actionDate: DateTime.now(),
-      todo: null,  // No todo to restore, just folder info
+
+  // fromJson method for deserialization
+  factory Folder.fromJson(Map<String, dynamic> json) {
+    // Assuming 'todos' is a list of Todo objects in the JSON
+    return Folder(
+      id: json['id'],
+      folderName: json['folderName'],
+      creationDate: DateTime.parse(json['creationDate']),
+      todos: (json['todos'] as List).map((todo) => Todo.fromJson(todo)).toList(),  // Deserialize Todo objects
     );
-    HistoryManager.addHistoryItem(historyItem);
+  }
+
+  // toJson method for serialization
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'folderName': folderName,
+      'creationDate': creationDate.toIso8601String(),  // Convert DateTime to ISO string
+      'todos': todos.map((todo) => todo.toJson()).toList(),  // Serialize Todo objects
+    };
   }
 }
