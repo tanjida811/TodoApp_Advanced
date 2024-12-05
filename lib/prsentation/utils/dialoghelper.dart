@@ -1,52 +1,78 @@
+
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+
 import '../constants/color.dart';
-import '../model/folder.dart';
 
 class DialogHelper {
-  // Delete folder dialog
-  static Future<void> showDeleteDialog(
-      BuildContext context, Folder folder, Function onDeleteFolder) {
+  /// Common button style for Cancel/Confirm actions
+  static ButtonStyle _buttonStyle({
+    required Color backgroundColor,
+    required Color foregroundColor,
+  }) {
+    return ElevatedButton.styleFrom(
+      backgroundColor: backgroundColor,
+      foregroundColor: foregroundColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    );
+  }
+
+  /// Show a confirmation dialog (e.g., for delete actions)
+  static Future<void> showConfirmationDialog({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required VoidCallback onConfirm,
+  }) async {
     return showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (context) {
         return AlertDialog(
           backgroundColor: tdSurfaceColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
           title: Text(
-            'Delete Folder',
+            title,
             style: TextStyle(
               color: tdPrimaryColor,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
           content: Text(
-            'Are you sure you want to delete this folder?',
+            message,
             style: TextStyle(
               color: tdTextSecondary,
+              fontSize: 16,
             ),
           ),
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           actions: [
-            TextButton(
+            ElevatedButton(
               onPressed: () {
-                onDeleteFolder(folder.id);
                 Navigator.pop(context);
               },
-              child: Text(
-                'Yes',
-                style: TextStyle(
-                  color: tdErrorColor,
-                  fontWeight: FontWeight.bold,
-                ),
+              style: _buttonStyle(
+                backgroundColor: tdBGColor,
+                foregroundColor: tdTextPrimary,
               ),
+              child: const Text('Cancel'),
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'No',
-                style: TextStyle(
-                  color: tdSuccessColor,
-                  fontWeight: FontWeight.bold,
-                ),
+            ElevatedButton(
+              onPressed: () {
+                onConfirm();
+                Navigator.pop(context);
+              },
+              style: _buttonStyle(
+                backgroundColor: tdPrimaryColor,
+                foregroundColor: Colors.white,
               ),
+              child: const Text('Confirm'),
             ),
           ],
         );
@@ -54,63 +80,74 @@ class DialogHelper {
     );
   }
 
-  // Rename folder dialog
-  static Future<void> showRenameDialog(
-      BuildContext context, Folder folder, Function(String) onRenameFolder) {
-    final TextEditingController folderNameController =
-    TextEditingController(text: folder.folderName);
+  /// Show an input dialog (e.g., for renaming or adding items)
+  static Future<void> showInputDialog({
+    required BuildContext context,
+    required String title,
+    required String hintText,
+    required String initialValue,
+    required ValueChanged<String> onConfirm,
+  }) async {
+    final TextEditingController _controller =
+    TextEditingController(text: initialValue);
 
     return showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (context) {
         return AlertDialog(
           backgroundColor: tdSurfaceColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
           title: Text(
-            'Rename Folder',
+            title,
             style: TextStyle(
               color: tdPrimaryColor,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
           content: TextField(
-            controller: folderNameController,
+            controller: _controller,
             decoration: InputDecoration(
-              labelText: 'Folder Name',
-              labelStyle: TextStyle(color: tdPrimaryColor),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: tdPrimaryColor),
+              hintText: hintText,
+              labelText: hintText,
+              labelStyle: const TextStyle(color: tdSecondaryColor),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: tdBorderColor),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: tdBorderColor),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: tdPrimaryColor),
               ),
             ),
           ),
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: tdErrorColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            TextButton(
+            ElevatedButton(
               onPressed: () {
-                final folderName = folderNameController.text.trim();
-                if (folderName.isNotEmpty) {
-                  onRenameFolder(folderName);
+                Navigator.pop(context);
+              },
+              style: _buttonStyle(
+                backgroundColor: tdBGColor,
+                foregroundColor: tdTextPrimary,
+              ),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final input = _controller.text.trim();
+                if (input.isNotEmpty) {
+                  onConfirm(input);
                   Navigator.pop(context);
                 }
               },
-              child: Text(
-                'Rename',
-                style: TextStyle(
-                  color: tdPrimaryColor,
-                  fontWeight: FontWeight.bold,
-                ),
+              style: _buttonStyle(
+                backgroundColor: tdPrimaryColor,
+                foregroundColor: Colors.white,
               ),
+              child: const Text('Confirm'),
             ),
           ],
         );

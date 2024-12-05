@@ -1,68 +1,76 @@
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
-import '../constants/color.dart';
+
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:to_do_app/prsentation/constants/color.dart';
+
 import '../model/folder.dart';
+import '../screen/todo_task_page.dart';
 import '../utils/dialoghelper.dart';
 
 class FolderItem extends StatelessWidget {
   final Folder folder;
-  final Function onFolderChanged;
+  final Function onRenameFolder;
   final Function onDeleteFolder;
 
   const FolderItem({
     Key? key,
     required this.folder,
-    required this.onFolderChanged,
+    required this.onRenameFolder,
     required this.onDeleteFolder,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    String formattedDate =
-        DateFormat.yMMMd().format(folder.creationDate ?? DateTime.now());
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 20),
-      child: ListTile(
-        onTap: () => onFolderChanged(folder),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-        tileColor: tdSurfaceColor,
-        leading: Icon(
-          Icons.folder,
-          color: tdSecondaryColor,
+    return ListTile(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TodoTaskPage(folder: folder),
+          ),
+        );
+      },
+      tileColor: tdSurfaceColor,
+      leading: Icon(Icons.folder, color: tdSecondaryColor),
+      title: Text(
+        folder.folderName ?? 'No Name',
+        style: const TextStyle(
+          fontSize: 18,
+          color: tdTextPrimary,
+          fontWeight: FontWeight.bold,
         ),
-        title: Text(
-          folder.folderName ?? 'No Name',
-          style: TextStyle(
-              fontSize: 18, color: tdTextPrimary, fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 5),
-            Text(
-              'Created on: $formattedDate',
-              style: TextStyle(fontSize: 12, color: tdTextSecondary),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: tdErrorColor, // Background color (red for delete)
+              shape: BoxShape.rectangle, // Circular shape
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3), // Shadow for elevation effect
+                  spreadRadius: 2,
+                  blurRadius: 4,
+                ),
+              ],
             ),
-          ],
-        ),
-        trailing: Container(
-          height: 35,
-          width: 35,
-          decoration: BoxDecoration(
-            color: tdErrorColor,
-            borderRadius: BorderRadius.circular(5),
+            child: IconButton(
+              icon: const Icon(Icons.delete, color: tdBGColor), // Delete icon
+              onPressed: () {
+                DialogHelper.showConfirmationDialog(
+                  context: context,
+                  title: 'Delete Folder',
+                  message: 'Are you sure you want to delete this folder?',
+                  onConfirm: ()  {onDeleteFolder(folder.id);
+                  },
+                );
+              }, // Pass the folder ID to the callback
+            ),
           ),
-          child: IconButton(
-            color: tdSurfaceColor,
-            iconSize: 18,
-            icon: Icon(Icons.delete),
-            onPressed: () =>
-                DialogHelper.showDeleteDialog(context, folder, onDeleteFolder),
-          ),
-        ),
+        ],
       ),
     );
   }
