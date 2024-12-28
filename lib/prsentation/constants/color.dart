@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 const Color tdPrimaryColor = Color(0xFF4CAF50);
-const Color tdSecondaryColor = Color(0xFF0C4CE0);
+const Color tdSecondaryColor = Color(0xFF4B7EF1);
 const Color tdBGColor = Color(0xFFF5F5F5);
 const Color tdSurfaceColor = Color(0xFFFFFFFF);
 const Color tdTextPrimary = Color(0xFF212121);
